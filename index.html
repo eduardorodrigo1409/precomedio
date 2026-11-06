@@ -94,6 +94,7 @@
     </div>
 
     <!-- Scripts do Firebase (SDK v10) -->
+    <!-- Scripts do Firebase (SDK v10) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -142,14 +143,17 @@
         document.getElementById('input-data').valueToDate = new Date();
         document.getElementById('input-data').value = new Date().toISOString().split('T')[0];
 
-        // Lançar novos dados
+        // Lançar novos dados (permite valores >= 0)
         document.getElementById('form-lancamento').addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = document.getElementById('input-data').value;
-            const faturamento = parseFloat(document.getElementById('input-faturamento').value);
-            const peso = parseFloat(document.getElementById('input-peso').value);
+            const faturamentoVal = document.getElementById('input-faturamento').value;
+            const pesoVal = document.getElementById('input-peso').value;
 
-            if (data && faturamento > 0 && peso > 0) {
+            const faturamento = parseFloat(faturamentoVal);
+            const peso = parseFloat(pesoVal);
+
+            if (data && !isNaN(faturamento) && !isNaN(peso) && faturamento >= 0 && peso >= 0) {
                 try {
                     await addDoc(colecaoLancamentos, {
                         data: data,
@@ -183,7 +187,8 @@
                 totalFaturamento += item.faturamento;
                 totalPeso += item.peso;
                 
-                const precoMedioDia = item.faturamento / item.peso;
+                // Trata divisão por zero se o peso for zero
+                const precoMedioDia = item.peso > 0 ? (item.faturamento / item.peso) : 0;
 
                 labels.push(item.data.split('-').reverse().slice(0, 2).join('/'));
                 dataChart.push(precoMedioDia.toFixed(2));
@@ -222,5 +227,3 @@
             }
         };
     </script>
-</body>
-</html>
