@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Preço Médio R$/kg</title>
+    <!-- Tailwind CSS para Estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Cabeçalho -->
+        <header class="bg-white p-6 rounded-xl shadow-md border-b border-gray-200">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-900">Painel de Acompanhamento - Preço Médio (R$/kg)</h1>
+            <p class="text-gray-500 text-sm mt-1">Gestão de faturamento acumulado e peso vendido</p>
+        </header>
+
+        <!-- Cards de Indicadores (KPIs) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-600">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Faturamento Acumulado</span>
+                <p id="kpi-faturamento" class="text-2xl font-black text-gray-800 mt-2">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-indigo-600">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Peso Acumulado</span>
+                <p id="kpi-peso" class="text-2xl font-black text-gray-800 mt-2">0,00 kg</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Preço Médio Geral</span>
+                <p id="kpi-preco-medio" class="text-3xl font-black text-green-600 mt-2">R$ 0,00 /kg</p>
+            </div>
+        </div>
+
+        <!-- Formulário de Lançamento e Gráfico -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Formulário -->
+            <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+                <h2 class="text-lg font-bold text-gray-700 border-b pb-2">Novo Lançamento Diário</h2>
+                <form id="form-lancamento" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Data</label>
+                        <input type="date" id="input-data" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Faturamento do Dia (R$)</label>
+                        <input type="number" step="0.01" id="input-faturamento" placeholder="0.00" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Peso Vendido (kg)</label>
+                        <input type="number" step="0.01" id="input-peso" placeholder="0.00" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition duration-200">
+                        Salvar Lançamento
+                    </button>
+                </form>
+            </div>
+
+            <!-- Gráfico -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
+                <h2 class="text-lg font-bold text-gray-700 border-b pb-2">Evolução do Preço Médio (R$/kg)</h2>
+                <div class="relative h-64 md:h-72 mt-4">
+                    <canvas id="chart-preco-medio"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Tabela de Histórico -->
+        <div class="bg-white p-6 rounded-xl shadow-md overflow-hidden">
+            <h2 class="text-lg font-bold text-gray-700 mb-4">Histórico de Lançamentos</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b text-gray-500 text-xs font-semibold uppercase">
+                            <th class="p-3">Data</th>
+                            <th class="p-3">Faturamento (R$)</th>
+                            <th class="p-3">Peso (kg)</th>
+                            <th class="p-3">Preço Médio do Dia</th>
+                            <th class="p-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-corpo" class="divide-y text-sm">
+                        <!-- Linhas geradas via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts do Firebase (SDK v10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Sua Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhZkIGuNptfMWCjii-IMoI2cCB376Rymo",
+            authDomain: "precomedio-953b7.firebaseapp.com",
+            projectId: "precomedio-953b7",
+            storageBucket: "precomedio-953b7.firebasestorage.app",
+            messagingSenderId: "503269234163",
+            appId: "1:503269234163:web:aba120fc56223408402e86"
+        };
+
+        // Inicializa o Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const colecaoLancamentos = collection(db, "lancamentos");
+
+        // Inicializa o Gráfico
+        const ctx = document.getElementById('chart-preco-medio').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Preço Médio (R$/kg)',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+
+        // Preenche a data de hoje por padrão
+        document.getElementById('input-data').valueToDate = new Date();
+        document.getElementById('input-data').value = new Date().toISOString().split('T')[0];
+
+        // Lançar novos dados
+        document.getElementById('form-lancamento').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = document.getElementById('input-data').value;
+            const faturamento = parseFloat(document.getElementById('input-faturamento').value);
+            const peso = parseFloat(document.getElementById('input-peso').value);
+
+            if (data && faturamento > 0 && peso > 0) {
+                try {
+                    await addDoc(colecaoLancamentos, {
+                        data: data,
+                        faturamento: faturamento,
+                        peso: peso,
+                        timestamp: new Date()
+                    });
+                    document.getElementById('input-faturamento').value = '';
+                    document.getElementById('input-peso').value = '';
+                } catch (error) {
+                    console.error("Erro ao salvar lançamento: ", error);
+                    alert("Erro ao salvar lançamento. Verifique o console.");
+                }
+            }
+        });
+
+        // Escutar atualizações em tempo real do Firestore
+        const q = query(colecaoLancamentos, orderBy("data", "asc"));
+        onSnapshot(q, (snapshot) => {
+            let totalFaturamento = 0;
+            let totalPeso = 0;
+            const labels = [];
+            const dataChart = [];
+            const tabelaCorpo = document.getElementById('tabela-corpo');
+            tabelaCorpo.innerHTML = '';
+
+            snapshot.docs.forEach((docSnapshot) => {
+                const item = docSnapshot.data();
+                const id = docSnapshot.id;
+                
+                totalFaturamento += item.faturamento;
+                totalPeso += item.peso;
+                
+                const precoMedioDia = item.faturamento / item.peso;
+
+                labels.push(item.data.split('-').reverse().slice(0, 2).join('/'));
+                dataChart.push(precoMedioDia.toFixed(2));
+
+                // Montar tabela
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 font-medium">${item.data.split('-').reverse().join('/')}</td>
+                    <td class="p-3">R$ ${item.faturamento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="p-3">${item.peso.toLocaleString('pt-BR', {minimumFractionDigits: 2})} kg</td>
+                    <td class="p-3 font-bold text-green-700">R$ ${precoMedioDia.toFixed(2)} /kg</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deletarItem('${id}')" class="text-red-500 hover:text-red-700 font-semibold text-xs bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    </td>
+                `;
+                tabelaCorpo.prepend(tr);
+            });
+
+            // Atualizar KPIs
+            document.getElementById('kpi-faturamento').innerText = `R$ ${totalFaturamento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpi-peso').innerText = `${totalPeso.toLocaleString('pt-BR', {minimumFractionDigits: 2})} kg`;
+            
+            const precoMedioGeral = totalPeso > 0 ? (totalFaturamento / totalPeso) : 0;
+            document.getElementById('kpi-preco-medio').innerText = `R$ ${precoMedioGeral.toFixed(2)} /kg`;
+
+            // Atualizar Gráfico
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = dataChart;
+            chart.update();
+        });
+
+        // Função global para excluir registro
+        window.deletarItem = async (id) => {
+            if (confirm("Deseja realmente excluir este lançamento?")) {
+                await deleteDoc(doc(db, "lancamentos", id));
+            }
+        };
+    </script>
+</body>
+</html>
